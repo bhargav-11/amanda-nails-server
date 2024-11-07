@@ -104,7 +104,7 @@ def get_available_slots():
 
     selected_products = arguments.get('serviceIds')  # List of service IDs
     date = arguments.get('date')  # Expected format: 'dd.MM.yyyy' (e.g., '02.01.2019')
-    booking_groups = arguments.get('employeeIds', [0])  # List of employee IDs; use [0] if any employee
+    employee_id = arguments.get('employeeId', None)  # List of employee IDs; use [0] if any employee
 
     # Define the Belbo API endpoint and parameters
     belbo_api_url = 'https://amanda-nails.hairlist.ch/externalBooking/calcAvailableAppointments'
@@ -115,9 +115,7 @@ def get_available_slots():
         'offset': date,
     }
 
-    # Add bookingGroups to the data
-    for idx, employee_id in enumerate(booking_groups):
-        belbo_api_data[f'bookingGroups[{idx}]'] = employee_id
+    belbo_api_data['bookingGroups[0]'] = employee_id
 
     # Make a POST request to the Belbo API
     response = requests.post(belbo_api_url, data=belbo_api_data)
@@ -162,10 +160,12 @@ def book_and_complete():
     date = arguments.get('date')  # Expected format: 'dd.MM.yyyy' (e.g., '02.01.2019')
     time = arguments.get('time')  # Expected format: 'HH:mm' (e.g., '16:00')
     selected_products = arguments.get('serviceIds')  # List of service IDs
+    full_name = arguments.get('fullName')  # Full name of the customer
+    phone_number = arguments.get('phoneNumber')  # Phone number of the customer
     servicer_group_id = 423  # As before
-    booking_source = "vapi"
+    booking_source = f"Name: {full_name}, Phone: {phone_number}, Booked via AI Assistant"
     success_page = None
-    booking_groups = arguments.get('employeeIds', [0])  # List of employee IDs; use [0] if any employee
+    employee_id = arguments.get('employeeId', None)
 
     # Define the Belbo API endpoint and parameters for booking
     belbo_api_url_booking = 'https://amanda-nails.hairlist.ch/newAppointment/bookAppointment'
@@ -180,9 +180,7 @@ def book_and_complete():
     if success_page:
         belbo_api_data_booking['successPage'] = success_page
 
-    # Add bookingGroups to the data
-    for idx, employee_id in enumerate(booking_groups):
-        belbo_api_data_booking[f'bookingGroups[{idx}]'] = employee_id
+    belbo_api_data_booking['bookingGroups[0]'] = employee_id
 
     # Make a POST request to the Belbo API to start booking
     response_booking = requests.post(belbo_api_url_booking, data=belbo_api_data_booking)
