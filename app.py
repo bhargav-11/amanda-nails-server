@@ -14,7 +14,7 @@ def get_services():
 
     print("--- get services",  request.json)
 
-    tool_call_id = request.json.get('message').get('toolCalls')[0].get('id')
+    tool_call_id = request.json.get('message').get('tool_calls')[0].get('id')
     # Make a POST request to the Belbo API
     response = requests.post(belbo_api_url, data=belbo_api_data)
     # print(response.json())
@@ -51,8 +51,8 @@ def get_employees():
     # Extract necessary data from the request
     print("--- get employees",  request.json)
     request_data = request.json
-    tool_call_id = request_data.get('message').get('toolCalls')[0].get('id')
-    selected_products = request_data.get('message').get('toolCalls')[0].get("function").get('arguments').get('serviceIds')
+    tool_call_id = request_data.get('message').get('tool_calls')[0].get('id')
+    selected_products = request_data.get('message').get('tool_calls')[0].get("function").get('arguments').get('serviceIds')
 
     # Define the Belbo API endpoint and parameters
     belbo_api_url = 'https://amanda-nails.hairlist.ch/externalBooking/calcServicers'
@@ -99,8 +99,8 @@ def get_available_slots():
     # Extract necessary data from the request
     print("---  get_available_slots",  request.json)
     request_data = request.json
-    tool_call_id = request_data.get('message').get('toolCalls')[0].get('id')
-    arguments = request_data.get('message').get('toolCalls')[0].get("function").get('arguments')
+    tool_call_id = request_data.get('message').get('tool_calls')[0].get('id')
+    arguments = request_data.get('message').get('tool_calls')[0].get("function").get('arguments')
 
     selected_products = arguments.get('serviceIds')  # List of service IDs
     date = arguments.get('date')  # Expected format: 'dd.MM.yyyy' (e.g., '02.01.2019')
@@ -156,8 +156,8 @@ def book_and_complete():
     # Extract necessary data from the request
     print("--- get book_and_complete", request.json)
     request_data = request.json
-    tool_call_id = request_data.get('message').get('toolCalls')[0].get('id')
-    arguments = request_data.get('message').get('toolCalls')[0].get("function").get('arguments')
+    tool_call_id = request_data.get('message').get('tool_calls')[0].get('id')
+    arguments = request_data.get('message').get('tool_calls')[0].get("function").get('arguments')
 
     date = arguments.get('date')  # Expected format: 'dd.MM.yyyy' (e.g., '02.01.2019')
     time = arguments.get('time')  # Expected format: 'HH:mm' (e.g., '16:00')
