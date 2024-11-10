@@ -148,7 +148,6 @@ def get_available_slots():
 
     return jsonify(result)
 
-# Define the endpoint to start and complete a booking
 @app.route('/book_and_complete', methods=['POST'])
 def book_and_complete():
     # Extract necessary data from the request
@@ -157,83 +156,90 @@ def book_and_complete():
     tool_call_id = request_data.get('message').get('toolCalls')[0].get('id')
     arguments = request_data.get('message').get('toolCalls')[0].get("function").get('arguments')
 
-    date = arguments.get('date')  # Expected format: 'dd.MM.yyyy' (e.g., '02.01.2019')
-    time = arguments.get('time')  # Expected format: 'HH:mm' (e.g., '16:00')
-    selected_products = arguments.get('serviceIds')  # List of service IDs
-    full_name = arguments.get('fullName')  # Full name of the customer
-    phone_number = arguments.get('phoneNumber')  # Phone number of the customer
-    servicer_group_id = 423  # As before
-    booking_source = f"Name: {full_name}, Phone: {phone_number}, Booked via AI Assistant"
-    success_page = None
-    employee_id = arguments.get('employeeId', None)
+    date = arguments.get('date')
+    time = arguments.get('time')
+    selected_products = arguments.get('serviceIds')
+    full_name = arguments.get('fullName')
+    gender = arguments.get('gender')
+    email = arguments.get('email')
+    phone_number = request_data.get('message', {}).get('customer', {}).get('number', '1234567890')
+    first_name = full_name.split()[0] if full_name else None
+    last_name = full_name.split()[-1] if full_name else None
+    servicer_group_id = 423
+    employee_id = arguments.get('employeeId', 0)
 
-    # Define the Belbo API endpoint and parameters for booking
+    # Step 1: Start booking
     belbo_api_url_booking = 'https://amanda-nails.hairlist.ch/newAppointment/bookAppointment'
     belbo_api_data_booking = {
         'date': date,
         'time': time,
         'selectedProducts': ','.join(map(str, selected_products)),
         'servicerGroupId': servicer_group_id,
-        'bookingSource': booking_source,
+        'bookingSource': "Booked via AI Assistant",
     }
-
-    if success_page:
-        belbo_api_data_booking['successPage'] = success_page
-
     belbo_api_data_booking['bookingGroups[0]'] = employee_id
 
-    # Make a POST request to the Belbo API to start booking
     response_booking = requests.post(belbo_api_url_booking, data=belbo_api_data_booking)
-    if response_booking.status_code != 200:
-        print(f"Error starting booking: {response_booking.status_code} - {response_booking.text}")
-        return jsonify({'error': 'Failed to start booking with Belbo API'}), response_booking.status_code
 
-    # Parse the response
+    if response_booking.status_code != 200:
+        return jsonify({'error': 'Appointment booking unsuccessful! Please try with another time slot'}), response_booking.status_code
+
     belbo_data_booking = response_booking.json()
 
-    # Handle possible 'GIVEN' result
-    if belbo_data_booking.get('result') == 'GIVEN':
-        print("Error: Time slot is already booked.")
-        return jsonify({'error': 'Time slot is already booked'}), 400
-
-    # Extract appointmentId and appointmentParticipantId
+    print("belbo_data_booking", belbo_data_booking)
     appointment_id = belbo_data_booking.get('appointmentId')
     appointment_participant_id = belbo_data_booking.get('appointmentParticipantId')
 
     if not appointment_id or not appointment_participant_id:
-        print("Error: Failed to retrieve appointment IDs from Belbo API.")
-        print(f"Response data: {belbo_data_booking}")
-        return jsonify({'error': 'Failed to retrieve appointment IDs from Belbo API'}), 400
+        return jsonify({'error': 'Appointment booking unsuccessful! Please try with another time slot'}), 400
 
-    # Now, finalize the booking
+    # Step 2: Add customer data
+    belbo_api_url_customer_data = 'https://amanda-nails.hairlist.ch/externalBooking/persistCustomerData'
+    belbo_api_data_customer = {
+        'appointmentId': appointment_id,
+        'genderType': gender,
+        'firstName': first_name,
+        'name': last_name,
+        'mobile': phone_number,
+        'email': email,
+        'privacy': 'yes',
+        'webBooking': 'yes',
+        'terms': 'yes'
+    }
+
+    print("belbo_api_data_customer", belbo_api_data_customer)
+    response_customer = requests.post(belbo_api_url_customer_data, data=belbo_api_data_customer)
+    if response_customer.status_code != 200:
+
+        print("response_customer", response_customer.json())
+        return jsonify({'error': 'Failed to add customer data to booking', result: response_customer}), response_customer.status_code
+    
+    print("response_customer", response_customer.json())
+
+    # Step 3: Finalize the booking
     belbo_api_url_finalize = 'https://amanda-nails.hairlist.ch/externalBooking/finalizeBooking'
     belbo_api_data_finalize = {
         'appointmentId': appointment_id,
         'appointmentParticipantId': appointment_participant_id,
     }
-
-    # Make a POST request to the Belbo API to finalize booking
     response_finalize = requests.post(belbo_api_url_finalize, data=belbo_api_data_finalize)
+
+    print("response_finalize", response_finalize.json())
     if response_finalize.status_code != 200:
-        print(f"Error finalizing booking: {response_finalize.status_code} - {response_finalize.text}")
         return jsonify({'error': 'Failed to finalize booking with Belbo API'}), response_finalize.status_code
 
-    # Parse the response
     belbo_data_finalize = response_finalize.json()
-
-    # Check for 'result' in response
     if belbo_data_finalize.get('result') != 'OK':
-        print("Error: Failed to finalize booking.")
-        print(f"Response data: {belbo_data_finalize}")
         return jsonify({'error': 'Failed to finalize booking', 'details': belbo_data_finalize}), 400
 
-    # Combine the booking and finalize responses
+    # Combine results
     combined_result = {
         'booking': belbo_data_booking,
-        'finalization': belbo_data_finalize
+        'customer_data': response_customer.json(),
+        'finalization': []
     }
 
-    # Format the response as specified
+    # Format the response
     result = {
         "results": [
             {
@@ -244,6 +250,7 @@ def book_and_complete():
     }
 
     return jsonify(result)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
